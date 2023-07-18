@@ -5696,6 +5696,30 @@ def test_compare_identity(op, result) -> None:
 
 
 @pytest.mark.parametrize(
+    "op, lhs, rhs, result",
+    [
+        ("is", True, True, True),
+        ("is", False, False, True),
+        ("is", None, None, True),
+        ("is not", True, True, False),
+        ("is not", True, False, True),
+        ("is not", True, None, True),
+        ("is", print(), None, True),
+        ("is not", 1==1, True, False),
+        ("is", {}, None, util.Uninferable),
+        ("is not", None, [], util.Uninferable),
+    ],
+)
+def test_compare_identity_singleton(op, lhs, rhs, result) -> None:
+    code = f"""
+    {lhs} {op} {rhs}
+    """
+    node = extract_node(code)
+    inferred = next(node.infer())
+    assert inferred.value == result
+
+
+@pytest.mark.parametrize(
     "op,result",
     [
         ("in", True),
