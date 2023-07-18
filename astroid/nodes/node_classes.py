@@ -1753,11 +1753,18 @@ COMPARE_OPS: dict[str, Callable[[Any, Any], bool]] = {
     ">=": operator.ge,
     "in": lambda a, b: a in b,
     "not in": lambda a, b: a not in b,
+    'is': lambda a, b: a is b,
+    'is not': lambda a, b: a is not b,
 }
 UNINFERABLE_OPS = {
     "is",
     "is not",
 }
+SINGLETONS = [
+    None,
+    True,
+    False,
+]
 
 
 class Compare(NodeNG):
@@ -1835,8 +1842,6 @@ class Compare(NodeNG):
         util.Uninferable
         """
         retval: bool | None = None
-        if op in UNINFERABLE_OPS:
-            return util.Uninferable
         op_func = COMPARE_OPS[op]
 
         for left, right in itertools.product(left_iter, right_iter):
@@ -1847,6 +1852,9 @@ class Compare(NodeNG):
 
             try:
                 left, right = self._to_literal(left), self._to_literal(right)
+                if op in UNINFERABLE_OPS and (left not in SINGLETONS or right not in SINGLETONS):
+                    return util.Uninferable
+
             except (SyntaxError, ValueError, AttributeError):
                 return util.Uninferable
 
