@@ -19,6 +19,9 @@ def common_params(node: str) -> pytest.MarkDecorator:
             (f"{node} is not None", 3, None),
             (f"{node}", 3, None),
             (f"not {node}", None, 3),
+            (f"isinstance({node}, int)", 3, None),
+            (f"isinstance({node}, (str, int))", 3, None),
+            # todo test subtyping
         ),
     )
 

@@ -10,7 +10,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
-from astroid import nodes, util
+from astroid import helpers, nodes, util
+from astroid.exceptions import AstroidTypeError, InferenceError, MroError
 from astroid.typing import InferenceResult
 
 if sys.version_info >= (3, 11):
@@ -125,6 +126,39 @@ class BooleanConstraint(Constraint):
         return self.negate ^ inferred_booleaness
 
 
+class InstanceConstraint(Constraint):
+    """Represents an "isinstance(x, y)" constraint."""
+
+    def __init__(self, node: nodes.NodeNG, negate: bool, classinfo: nodes.NodeNG):
+        super().__init__(node, negate)
+        self.classinfo = classinfo
+
+    @classmethod
+    def match(
+        cls, node: _NameNodes, expr: nodes.NodeNG, negate: bool = False
+    ) -> Self | None:
+        if (
+            isinstance(expr, nodes.Call)
+            and isinstance(expr.func, nodes.Name)
+            and expr.func.name == "isinstance"
+            and len(expr.args) == 2
+            and _matches(expr.args[0], node)
+        ):
+            return cls(node=node, negate=negate, classinfo=expr.args[1])
+
+        return None
+
+    def satisfied_by(self, inferred: InferenceResult) -> bool:
+        if isinstance(inferred, util.UninferableBase):
+            return True
+
+        try:
+            types = helpers.class_or_tuple_to_container(self.classinfo)
+            return self.negate ^ (helpers.object_isinstance(inferred, types) is True)
+        except (InferenceError, AstroidTypeError, MroError):
+            return True
+
+
 def get_constraints(
     expr: _NameNodes, frame: nodes.LocalsDictNodeNG
 ) -> dict[nodes.If, set[Constraint]]:
@@ -159,6 +193,7 @@ ALL_CONSTRAINT_CLASSES = frozenset(
     (
         NoneConstraint,
         BooleanConstraint,
+        InstanceConstraint,
     )
 )
 """All supported constraint types."""
